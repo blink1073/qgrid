@@ -1,5 +1,186 @@
 require(["widgets/js/widget", "widgets/js/manager"], function(widget, manager){
 
+    /**
+     * Date input handler.
+     *
+     * Adapted from https://github.com/mleibman/SlickGrid/blob/master/slick.editors.js
+     * MIT License, Copyright (c) 2010 Michael Leibman
+     */
+    function DateEditor(args) {
+        var $input;
+        var defaultValue;
+        var scope = this;
+        var calendarOpen = false;
+        this.init = function () {
+          $input = $("<INPUT type=text class='editor-text' />");
+          $input.appendTo(args.container);
+          $input.focus().select();
+          $input.datepicker({
+            showOn: "button",
+            buttonImageOnly: true,
+            beforeShow: function () {
+              calendarOpen = true
+            },
+            onClose: function () {
+              calendarOpen = false
+            }
+          });
+
+          $input.width($input.width() - 18);
+        };
+
+        this.destroy = function () {
+          $.datepicker.dpDiv.stop(true, true);
+          $input.datepicker("hide");
+          $input.datepicker("destroy");
+          $input.remove();
+        };
+
+        this.show = function () {
+          if (calendarOpen) {
+            $.datepicker.dpDiv.stop(true, true).show();
+          }
+        };
+
+        this.hide = function () {
+          if (calendarOpen) {
+            $.datepicker.dpDiv.stop(true, true).hide();
+          }
+        };
+
+        this.position = function (position) {
+          if (!calendarOpen) {
+            return;
+          }
+          $.datepicker.dpDiv
+              .css("top", position.top + 30)
+              .css("left", position.left);
+        };
+
+        this.focus = function () {
+          $input.focus();
+        };
+
+        this.loadValue = function (item) {
+          defaultValue = item[args.column.field];
+          $input.val(defaultValue);
+          $input[0].defaultValue = defaultValue;
+          $input.select();
+        };
+
+        this.serializeValue = function () {
+          return $input.val();
+        };
+
+        this.applyValue = function (item, state) {
+          item[args.column.field] = state;
+        };
+
+        this.isValueChanged = function () {
+          return (!($input.val() == "" && defaultValue == null)) && ($input.val() != defaultValue);
+        };
+
+        this.validate = function () {
+          return {
+            valid: true,
+            msg: null
+          };
+        };
+
+        this.init();
+    }
+
+    /**
+     * Text input handler.
+     *
+     * From https://github.com/mleibman/SlickGrid/blob/master/slick.editors.js
+     * MIT License, Copyright (c) 2010 Michael Leibman
+     */
+    function TextEditor(args) {
+        var $input;
+        var defaultValue;
+        var scope = this;
+
+        this.init = function () {
+          $input = $("<INPUT type=text class='editor-text' />")
+              .appendTo(args.container)
+              .bind("keydown.nav", function (e) {
+                if (e.keyCode === $.ui.keyCode.LEFT || e.keyCode === $.ui.keyCode.RIGHT) {
+                  e.stopImmediatePropagation();
+                }
+              })
+              .focus()
+              .select();
+        };
+
+        this.destroy = function () {
+          $input.remove();
+        };
+
+        this.focus = function () {
+          $input.focus();
+        };
+
+        this.getValue = function () {
+          return $input.val();
+        };
+
+        this.setValue = function (val) {
+          $input.val(val);
+        };
+
+        this.loadValue = function (item) {
+          defaultValue = item[args.column.field] || "";
+          $input.val(defaultValue);
+          $input[0].defaultValue = defaultValue;
+          $input.select();
+        };
+
+        this.serializeValue = function () {
+          return $input.val();
+        };
+
+        this.applyValue = function (item, state) {
+          item[args.column.field] = state;
+        };
+
+        this.isValueChanged = function () {
+          return (!($input.val() == "" && defaultValue == null)) && ($input.val() != defaultValue);
+        };
+
+        this.validate = function () {
+          if (args.column.validator) {
+            var validationResults = args.column.validator($input.val());
+            if (!validationResults.valid) {
+              return validationResults;
+            }
+          }
+
+          return {
+            valid: true,
+            msg: null
+          };
+        };
+
+        this.init();
+    }
+    
+    /**
+     * Validator for numeric cells.
+     */
+    function validateNumber(value) {
+      if (isNaN(value)) {
+        return {
+          valid: false,
+          msg: "Please enter a valid integer"
+        };
+      }
+      return {
+        valid: true,
+        msg: null
+      };
+    }
+
     var grid;
 
     var QGridView = widget.DOMWidgetView.extend({
@@ -28,7 +209,6 @@ require(["widgets/js/widget", "widgets/js/manager"], function(widget, manager){
                 date_filter: cdn_base_url + "/qgrid.datefilter",
                 slider_filter: cdn_base_url + "/qgrid.sliderfilter",
                 filter_base:  cdn_base_url + "/qgrid.filterbase",
-                editors: cdn_base_url + "/qgrid.editors",
                 handlebars: "https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0/handlebars.min"
             };
 
@@ -64,9 +244,9 @@ require(["widgets/js/widget", "widgets/js/manager"], function(widget, manager){
             ],
             function() {
                 require(['slick_grid'], function() {
-                    require(["data_grid", "editors"], 
-                        function(dgrid, editors) {
-                            that.setupQGrid(dgrid, editors);
+                    require(["data_grid"], 
+                        function(dgrid) {
+                            that.setupQGrid(dgrid);
                     });
                 });
             });
@@ -75,7 +255,7 @@ require(["widgets/js/widget", "widgets/js/manager"], function(widget, manager){
         /**
          * Set up our QGrid and event handlers.
          */
-        setupQGrid: function(dgrid, editors) {
+        setupQGrid: function(dgrid) {
             var that = this;
             // set up the divs and styles
             this.$el.addClass('q-grid-container');
@@ -103,12 +283,12 @@ require(["widgets/js/widget", "widgets/js/manager"], function(widget, manager){
             var columns = sgrid.getColumns();
             for (var i = 1; i < columns.length; i++) {
                 if (columns[i].type === 'date') {
-                   columns[i].editor = editors.DateEditor;
+                   columns[i].editor = DateEditor;
                 } else {
-                   columns[i].editor = editors.TextEditor;
+                   columns[i].editor = TextEditor;
                 }
                 if (columns[i].type === 'number') {
-                   columns[i].validator = editors.validateNumber;
+                   columns[i].validator = validateNumber;
                 } 
             }
             sgrid.setColumns(columns);
