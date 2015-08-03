@@ -244,7 +244,8 @@ require(["widgets/js/widget", "widgets/js/manager"], function(widget, manager){
                 'jquery_drag',
                 'slick_core',
                 'slick_data_view',
-                'slick_row_selection_model'
+                'slick_check_box_column',
+                'slick_row_selection_model',
             ],
             function() {
                 require(['slick_grid'], function() {
