@@ -323,6 +323,8 @@ require(["widgets/js/widget", "widgets/js/manager"], function(widget, manager){
                 var dd = sgrid.getData();
                 dd.addItem(msg);
                 dd.refresh();
+                // echo the message
+                this.sendMsg(msg);
             }
         },
 
