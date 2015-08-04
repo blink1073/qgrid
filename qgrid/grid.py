@@ -154,7 +154,10 @@ class QGridWidget(widgets.DOMWidget):
             msg = 'alert("Cannot add a row a table with a non-integer index")'
             display(Javascript(msg))
             return
-        last = df.loc[df.index[-1], :]
+        try:
+            last = df.loc[df.index[-1], :]
+        except IndexError:
+            return
         last.name += 1
         self._loop_guard = True
         self.df = self.df.append(last)
